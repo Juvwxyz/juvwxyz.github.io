@@ -4,9 +4,9 @@ description: Juvwxyz的个人博客
 keywords: null
 author: Juvwxyz
 language: zh-CN
-timezone: 'Asia/Shanghai'
+timezone: Asia/Shanghai
 url: https://juvwxyz.github.io/
-permalink: ':category/:title/'
+permalink: ':title/'
 permalink_defaults: null
 pretty_urls:
   trailing_index: true
@@ -64,3 +64,6 @@ deploy:
   type: ''
 archive_generator:
   per_page: 0
+mermaid:
+  enable: true
+  version: 7.1.2
