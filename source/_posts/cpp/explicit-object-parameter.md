@@ -80,7 +80,7 @@ int main() {
 
 ```cpp
 struct A {
-    void foo(this A self) {}
+    void foo(this A& self) {}
 };
 
 int main() {
@@ -91,7 +91,7 @@ int main() {
 }
 ```
 
-显式对象形参有一些限制，构造函数、析构函数、静态成员函数、虚函数不能有显式对象形参。它们也不能有cv限定或者引用限定。若要对参数类型进行限定，应当限定在显式对象形参上。
+显式对象形参有一些限制，构造函数、析构函数、静态成员函数、虚函数不能有显式对象形参。
 
 ```cpp
 struct A {
@@ -109,6 +109,19 @@ struct A {
 };
 ```
 
+它们也不能有cv限定或者引用限定。若要对参数类型进行限定，应当限定在显式对象形参上。
+
+```cpp
+struct A {
+    // 相当于 void foo() &
+    void foo(this A& self);
+    // 相当于 void foo() &&
+    void foo(this A&& self);
+    // 相当于 void bar() const &
+    void bar(this A const & self);
+};
+```
+
 也不能在显式对象成员函数体内使用`this`指针。所有的成员访问必须通过其第一个参数进行。
 
 ```cpp
@@ -122,7 +135,53 @@ struct A {
 };
 ```
 
-指向显式对象成员函数的指针是普通函数指针，而不是指向成员的指针。二者有本质区别。
+显式对象成员函数与隐式对象成员函数可以重载，只要重载决议能够区分二者的参数类型。
+
+```cpp
+struct A {
+    void foo(this A& a);
+
+    // OK, 隐式对象形参的类型是 const A&
+    void foo() const&;
+    // OK, 隐式对象形参的类型是 A&&
+    void foo() &&;
+    // Error, 隐式对象形参的类型是 A&，与第一个重载冲突
+    void foo();
+};
+```
+
+显式对象形参的传参规则与普通的函数参数一样。如果它没有声明为引用，那么传参时会发生复制。并且，它的类型不必与该类相同，只要能够隐式转换即可。
+
+```cpp
+struct A {};
+struct B {
+    // 自定义转换到A
+    operator A() const { return {}; }
+
+    // 以值语义传递，传参时发生复制
+    void foo (this B b) {}
+
+    // OK, 传参时先转换到A
+    void bar(this A a) {}
+};
+```
+
+更重要的是，在成员函数模板中使用显式对象形参时，它的类型与值类别和其他参数一样可以进行模板实参推导，这也是这一特性被称为`推导this (deducing this)`的原因。
+
+```cpp
+struct A {
+    template<class T>
+    void foo(this T&& self) { }
+};
+int main() {
+    A a; const A& r = a;
+    a.foo();            // T -> A&,       this A & self
+    r.foo();            // T -> const A&, this A const & self
+    std::move(a).foo(); // T -> A,        this A && self
+}
+```
+
+最后，指向显式对象成员函数的指针是普通函数指针，而不是指向成员的指针。二者有本质区别。
 
 ```cpp
 struct A {
@@ -139,71 +198,13 @@ int main() {
   auto p2 = &A::foo;
   p2(a, 0);
 }
-
 ```
 
-显式对象成员函数与隐式对象成员函数可以重载，只要重载决议能够区分二者的参数类型。
+# 使用例
 
-```cpp
-struct A {
-    void foo(this A& a);
+## 1、减少重复成员函数的编码
 
-    // OK, 隐式对象形参的类型是 const A&
-    void foo() const&;
-    // OK, 隐式对象形参的类型是 A&&
-    void foo() &&;
-    // Error, 隐式对象形参的类型是 A&，与第一个重载冲突
-    void foo() &;
-};
-```
-
-显式对象形参的传参规则与普通的函数参数一样。如果它没有声明为引用，那么传参时会发生复制。并且，它的类型不必与该类相同，只要能够隐式转换即可。
-
-```cpp
-struct A {};
-struct B {
-    // 自定义转换到A
-    operator A() const { return {}; }
-
-    // 传参时发生复制
-    void foo (this B b) {}
-
-    // OK, 传参时先转换到A
-    void bar(this A a) {}
-};
-```
-
-更重要的是，在成员函数模板中使用显式对象形参时，它的类型与值类别和其他参数一样可以进行模板实参推导，这也是这一特性被称为`推导this (deducing this)`的原因。这个特性可以极大地简化CRTP手法。
-
-```cpp
-#include <iostream>
-#include <typeinfo>
-
-struct Rtti {
-    // 与简写函数模板配合，相当于
-    // template<class Self>
-    // void type_name(this Self &&self)
-    void type_name(this auto&& self) {
-        std::cout << typeid(self).name() << '\n';
-    }
-    // 虚析构，强制派生类成为多态类型
-    virtual ~Rtti() = default;
-};
-struct A : Rtti {};
-struct B : A {};
-
-int main() {
-    // 推导出 Self -> A&，实例化并调用Rtti::type_name<A&>
-    A a; a.type_name();
-    // 推导出 Self -> B&，实例化并调用Rtti::type_name<B&>
-    B b; b.type_name();
-    // 推导出 Self -> A&，实例化并调用Rtti::type_name<A&>
-    // 派生自Rtti的类型是多态类型，可在运行时检查其动态类型
-    A& r = b; r.type_name();
-}
-```
-
-此外，显式对象形参也可以简化需要区分const与非const重载的成员函数。例如下面的例子展示了一个类似STL容器的类。它重载了`operator[]`以访问其元素。区分const与非const重载是很常见的需求：对于const对象，返回其元素的const引用；对于非const对象返回非const引用。使用显式对象形参的自动推导，配合转发引用auto&&甚至能推导出右值引用，对于右值实参可返回其元素的右值引用。这使得自定义容器的`operator[]`与原生数组的下标运算行为一致。数组左值的下标运算是左值，而数组右值的下标运算是亡值。
+显式对象形参可以简化需要区分const与非const重载的成员函数。例如下面的例子展示了一个类似STL容器的类。它重载了`operator[]`以访问其元素。区分const与非const重载是很常见的需求：对于const对象，返回其元素的const引用；对于非const对象返回非const引用。使用显式对象形参的自动推导，配合转发引用auto&&甚至能推导出右值引用，对于右值实参可返回其元素的右值引用。这使得自定义容器的`operator[]`与原生数组的下标运算行为一致。数组左值的下标运算是左值，而数组右值的下标运算是亡值。现有STL容器的`operator[]`并未遵循这一语义。
 
 ```cpp
 struct A {
@@ -213,24 +214,64 @@ struct A {
 
     // 有显式对象形参之前，const与非const重载必须写两遍，虽然它们的函数体几乎一模一样
     // int& operator[](size_t i) & {
-    //   return m_data[i];
-    // }
-    // const int& operator[](size_t i) const& {
-    //   return m_data[i];
-    // }
+    //    return m_data[i];
+    //  }
+    //  const int& operator[](size_t i) const & {
+    //    return m_data[i];
+    //  }
 
     // 如果需要进一步区分左值实参和右值实参，甚至还要写第三个重载
-    // int&& operator[](size_t i) && {
-    //   return m_data[i];
-    // }
+    //  int&& operator[](size_t i) && {
+    //    return std::move(m_data[i]);
+    //  }
+
+    // const && 的场景比较少见
+    //  const int&& operator[](size_t i) const && {
+    //    return std::move(m_data[i]);
+    //  }
 
     // 使用显式对象形参，可自动推导实参类型，配合std::forward_like
-    // 和decltype(auto)可自动推导返回值的引用限定和cv限定
+    // 和decltype(auto)可自动推导返回值的引用限定和cv限定，用一个函数
+    // 模板即可处理上述四个重载
     decltype(auto) operator[](this auto&& self, size_t i) {
         return std::forward_like<decltype(self)>(m_data[i]);
     }
+};
+```
+
+## 2、简化CRTP手法
+
+CRTP（奇异递归模板模式，Curiously recurring template pattern）是一种常用的静态多态手法。标准库的类模板std::enable_shared_from_this就用到了它。推导this能够帮助我们简化CRTP。
+
+```cpp
+struct inc_op {
+    // 配合简写函数模板，自动推导self的类型
+    decltype(auto) operator++(this auto&& self) {
+        return self.post_inc();
+    }
+    auto operator++(this auto&& self, int) {
+        auto temp = self;
+        ++self;
+        return temp;
+    }
+};
+
+struct A : inc_op  {
+    int value;
+    A& post_inc() { value++; return *this; }
+};
+
+int main() {
+    A a;
+    // 调用 int& inc_op::operator++ <A&> (this A& self)
+    ++a;
+
+    // 调用 int& inc_op::operator++ <A&> (this A& self, int)
+    a++;
 }
 ```
+
+## 3、简化递归lambda
 
 显式对象形参也可以简化递归lambda。lambda虽然是一个重载了函数调用运算符的匿名类类型，却无法在其函数体中使用`this`指针。只能是出现在类成员函数的lambda捕获并访问其外围的`this`。
 
