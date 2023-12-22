@@ -5,9 +5,12 @@ categories:
 tags:
   - C++
   - 函数模板
+  - 简写函数模板
   - 语法糖
 date: 2023-11-11 11:11:11
 ---
+
+<iframe src="//player.bilibili.com/player.html?bvid=BV1KC4y1S7gX&page=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"> </iframe>
 
 简写函数模板是C++20引入的一个新特性，是一个非常实用的语法糖。
 
@@ -101,10 +104,15 @@ void bar(unsigned long long i) {
 }
 ```
 
-总体而言，这是一个很实用的小特性，在仅需模板化函数参数列表时能够简化很多代码。实际上这也不能完全称得上新特性，它来自C++14就有的泛型lambda表达式，现在C++20终于将它扩展到了任何函数声明。
+总体而言，这是一个很实用的语法糖，在仅需模板化函数参数列表时能够简化很多代码。实际上这也不能完全称得上新特性，它来自C++14就有的泛型lambda表达式，现在C++20终于将它扩展到了函数。
 
 ```cpp
+// C++14: 泛型lambda
 auto lambda = [](auto arg) {
     std::cout << arg << '\n';
 }
 ```
+
+## 参考
+
+- [cppreference - 简写函数模板](https://zh.cppreference.com/w/cpp/language/function_template#.E7.AE.80.E5.86.99.E5.87.BD.E6.95.B0.E6.A8.A1.E6.9D.BF)

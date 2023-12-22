@@ -658,3 +658,11 @@ int main() {
 
 > *结构化绑定声明* :
 > *存储类说明符ₒₚₜ* *cv限定符ₒₚₜ* `auto` *引用限定符ₒₚₜ* `[`*标识符列表*`]` *初始化器* `;`
+
+## 参考
+
+- [cppreference - 结构化绑定](https://zh.cppreference.com/w/cpp/language/structured_binding)
+
+- [p0144r2 - Structured Bindings](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0144r2.pdf)
+
+- [[dcl.struct.bind]](https://eel.is/c++draft/dcl.struct.bind)

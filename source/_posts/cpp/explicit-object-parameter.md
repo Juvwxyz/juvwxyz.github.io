@@ -11,6 +11,8 @@ tags:
 date: 2023-11-19 18:17:16
 ---
 
+<iframe src="//player.bilibili.com/player.html?bvid=BV11j411W72W&page=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"> </iframe>
+
 # 隐式对象形参
 
 在正式介绍显式对象形参之前，让我们先来复习一下什么叫隐式对象形参。我们知道，在调用类的非静态成员函数时，必须通过对象的成员访问运算符来调用。而在函数内，我们可以通过`this`指针来访问这个调用成员函数时的对象。
@@ -299,3 +301,7 @@ int main() {
     std::cout << fib2(8) << '\n';
 }
 ```
+
+## 参考
+
+- [cppreference - 显式对象形参](https://zh.cppreference.com/w/cpp/language/member_functions#.E6.98.BE.E5.BC.8F.E5.AF.B9.E8.B1.A1.E5.BD.A2.E5.8F.82)
